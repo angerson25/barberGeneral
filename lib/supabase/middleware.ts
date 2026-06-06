@@ -8,15 +8,28 @@ import { NextResponse, type NextRequest } from "next/server";
 export async function updateSession(request: NextRequest) {
   let supabaseResponse = NextResponse.next({ request });
 
-  const supabase = createServerClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-    {
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+
+  // Si faltan las variables de entorno (p. ej. mal configuradas en Vercel),
+  // no rompas el middleware: deja pasar la request sin refrescar sesión.
+  if (!url || !anonKey) {
+    return supabaseResponse;
+  }
+
+  try {
+    const supabase = createServerClient(url, anonKey, {
       cookies: {
         getAll() {
           return request.cookies.getAll();
         },
-        setAll(cookiesToSet: { name: string; value: string; options?: Record<string, unknown> }[]) {
+        setAll(
+          cookiesToSet: {
+            name: string;
+            value: string;
+            options?: Record<string, unknown>;
+          }[]
+        ) {
           cookiesToSet.forEach(({ name, value }) =>
             request.cookies.set(name, value)
           );
@@ -26,12 +39,15 @@ export async function updateSession(request: NextRequest) {
           );
         },
       },
-    }
-  );
+    });
 
-  // IMPORTANTE: no ejecutar lógica entre createServerClient y getUser().
-  // Esto refresca el token si es necesario.
-  await supabase.auth.getUser();
+    // IMPORTANTE: no ejecutar lógica entre createServerClient y getUser().
+    // Esto refresca el token si es necesario.
+    await supabase.auth.getUser();
+  } catch {
+    // Cualquier fallo de red/sesión no debe provocar un 500 del middleware.
+    return supabaseResponse;
+  }
 
   return supabaseResponse;
 }
