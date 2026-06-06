@@ -96,6 +96,17 @@ create table if not exists public.appointments (
 
 create index if not exists idx_appointments_start on public.appointments(start_time);
 create index if not exists idx_appointments_barber on public.appointments(barber_id);
+
+-- ============================================================================
+--  FUNCIÓN AUXILIAR: ¿el usuario actual es administrador?
+-- ============================================================================
+create or replace function public.is_admin()
+returns boolean
+language sql
+security definer
+set search_path = public
+stable
+as $$
     select exists (
         select 1 from public.admins a where a.id = auth.uid()
     );
@@ -115,7 +126,11 @@ create index if not exists idx_appointments_barber on public.appointments(barber
     alter table public.admins       enable row level security;
     alter table public.clients      enable row level security;
     alter table public.services     enable row level security;
-alter table public.barbers      enable row level security;
+    alter table public.barbers      enable row level security;
+    alter table public.appointments enable row level security;
+
+    -- ---------------------------------------------------------------------------
+    --  SETTINGS  (lectura pública; escritura solo admin)
     -- ---------------------------------------------------------------------------
     drop policy if exists "settings_public_read" on public.settings;
     create policy "settings_public_read"
@@ -177,6 +192,10 @@ drop policy if exists "barbers_admin_delete" on public.barbers;
 create policy "barbers_admin_delete"
   on public.barbers for delete to authenticated
   using (public.is_admin());
+
+    -- ---------------------------------------------------------------------------
+    --  CLIENTS  (alta pública desde la reserva online; gestión solo admin)
+    -- ---------------------------------------------------------------------------
     -- Inserción anónima: al reservar online se registra el nombre/teléfono.
     -- NOTA: para producción conviene añadir captcha / rate limit.
     drop policy if exists "clients_public_insert" on public.clients;
