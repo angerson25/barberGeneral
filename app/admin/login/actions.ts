@@ -15,7 +15,10 @@ export async function loginAction(formData: FormData) {
   });
 
   if (error || !data.user) {
-    redirect(`/admin/login?error=${encodeURIComponent("Credenciales inválidas")}`);
+    // Muestra el motivo real de Supabase para facilitar el diagnóstico
+    // (p. ej. "Email not confirmed" o "Invalid login credentials").
+    const reason = error?.message ?? "Credenciales inválidas";
+    redirect(`/admin/login?error=${encodeURIComponent(reason)}`);
   }
 
   // Verifica que el usuario sea administrador (esté en la tabla `admins`).
