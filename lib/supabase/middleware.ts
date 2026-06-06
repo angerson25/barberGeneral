@@ -1,5 +1,6 @@
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
+import { getSupabaseEnv } from "./env";
 
 // ============================================================================
 //  Refresca la sesión de Supabase en cada request (Next.js middleware).
@@ -8,8 +9,7 @@ import { NextResponse, type NextRequest } from "next/server";
 export async function updateSession(request: NextRequest) {
   let supabaseResponse = NextResponse.next({ request });
 
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+  const { url, anonKey } = getSupabaseEnv();
 
   // Si faltan las variables de entorno (p. ej. mal configuradas en Vercel),
   // no rompas el middleware: deja pasar la request sin refrescar sesión.
