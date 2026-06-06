@@ -4,6 +4,12 @@ import type { Appointment, Service } from "@/lib/types";
 
 type ApptJoined = Appointment & { service: Pick<Service, "name"> | null };
 
+// Fila de cita completada usada para calcular comisiones por barbero.
+type ApptForCommission = {
+  service: Pick<Service, "price"> | null;
+  barber: { name: string; commission_rate: number } | null;
+};
+
 // Inicio del panel: KPIs + citas de hoy + próximos turnos.
 export default async function AdminHomePage() {
   const supabase = createClient();
@@ -36,6 +42,36 @@ export default async function AdminHomePage() {
     .from("services")
     .select("*", { count: "exact", head: true });
 
+  // Comisiones: citas completadas con su servicio y barbero.
+  const { data: completedData } = await supabase
+    .from("appointments")
+    .select("service:services(price), barber:barbers(name, commission_rate)")
+    .eq("status", "completed");
+
+  const completed = (completedData ?? []) as unknown as ApptForCommission[];
+
+  // Agrupa por barbero: nº servicios, facturación y comisión acumulada.
+  const commissionMap = new Map<
+    string,
+    { name: string; count: number; revenue: number; commission: number }
+  >();
+  for (const a of completed) {
+    if (!a.barber) continue;
+    const price = Number(a.service?.price ?? 0);
+    const rate = Number(a.barber.commission_rate ?? 0);
+    const key = a.barber.name;
+    const cur =
+      commissionMap.get(key) ??
+      { name: key, count: 0, revenue: 0, commission: 0 };
+    cur.count += 1;
+    cur.revenue += price;
+    cur.commission += (price * rate) / 100;
+    commissionMap.set(key, cur);
+  }
+  const commissions = Array.from(commissionMap.values()).sort(
+    (a, b) => b.commission - a.commission
+  );
+
   const today = (todayData ?? []) as ApptJoined[];
   const upcoming = (upcomingData ?? []) as ApptJoined[];
 
@@ -47,6 +83,46 @@ export default async function AdminHomePage() {
         <Kpi label="Citas hoy" value={today.length} />
         <Kpi label="Clientes" value={clientsCount ?? 0} />
         <Kpi label="Servicios" value={servicesCount ?? 0} />
+      </div>
+
+      <div className="mb-8">
+        <Card>
+          <h2 className="mb-3 text-base font-semibold">
+            Comisiones por barbero (citas completadas)
+          </h2>
+          {commissions.length === 0 ? (
+            <p className="text-sm text-gray-500">
+              Aún no hay citas completadas con barbero asignado.
+            </p>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b border-gray-100 text-left text-xs uppercase text-gray-400">
+                    <th className="py-2 font-medium">Barbero</th>
+                    <th className="py-2 text-right font-medium">Servicios</th>
+                    <th className="py-2 text-right font-medium">Facturado</th>
+                    <th className="py-2 text-right font-medium">Comisión</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-50">
+                  {commissions.map((c) => (
+                    <tr key={c.name}>
+                      <td className="py-2 font-medium">{c.name}</td>
+                      <td className="py-2 text-right">{c.count}</td>
+                      <td className="py-2 text-right">
+                        ${c.revenue.toFixed(2)}
+                      </td>
+                      <td className="py-2 text-right font-semibold text-brand">
+                        ${c.commission.toFixed(2)}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </Card>
       </div>
 
       <div className="grid gap-6 md:grid-cols-2">

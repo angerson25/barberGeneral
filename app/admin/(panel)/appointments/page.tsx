@@ -6,27 +6,36 @@ import {
 import { Button } from "@/components/ui/Button";
 import { Input, Label, Select } from "@/components/ui/Input";
 import { Card, CardTitle } from "@/components/ui/Card";
-import type { Appointment, Client, Service } from "@/lib/types";
+import type { Appointment, Barber, Client, Service } from "@/lib/types";
 
-type ApptJoined = Appointment & { service: Pick<Service, "name"> | null };
+type ApptJoined = Appointment & {
+  service: Pick<Service, "name"> | null;
+  barber: Pick<Barber, "name"> | null;
+};
 
 // Vista de agenda: lista simple + alta manual + cambio de estado.
 export default async function AppointmentsPage() {
   const supabase = createClient();
 
-  const [{ data: apptData }, { data: clientData }, { data: serviceData }] =
-    await Promise.all([
-      supabase
-        .from("appointments")
-        .select("*, service:services(name)")
-        .order("start_time", { ascending: true }),
-      supabase.from("clients").select("*").order("name"),
-      supabase.from("services").select("*").order("name"),
-    ]);
+  const [
+    { data: apptData },
+    { data: clientData },
+    { data: serviceData },
+    { data: barberData },
+  ] = await Promise.all([
+    supabase
+      .from("appointments")
+      .select("*, service:services(name), barber:barbers(name)")
+      .order("start_time", { ascending: true }),
+    supabase.from("clients").select("*").order("name"),
+    supabase.from("services").select("*").order("name"),
+    supabase.from("barbers").select("*").order("name"),
+  ]);
 
   const appointments = (apptData ?? []) as ApptJoined[];
   const clients = (clientData ?? []) as Client[];
   const services = (serviceData ?? []) as Service[];
+  const barbers = (barberData ?? []) as Barber[];
 
   return (
     <div>
@@ -55,6 +64,17 @@ export default async function AppointmentsPage() {
                   {services.map((s) => (
                     <option key={s.id} value={s.id}>
                       {s.name} ({s.duration_minutes} min)
+                    </option>
+                  ))}
+                </Select>
+              </div>
+              <div>
+                <Label htmlFor="barber_id">Barbero</Label>
+                <Select id="barber_id" name="barber_id">
+                  <option value="">— Sin asignar —</option>
+                  {barbers.map((b) => (
+                    <option key={b.id} value={b.id}>
+                      {b.name}
                     </option>
                   ))}
                 </Select>
@@ -97,6 +117,7 @@ export default async function AppointmentsPage() {
                             dateStyle: "medium",
                             timeStyle: "short",
                           })}
+                          {a.barber?.name ? ` · ✂ ${a.barber.name}` : ""}
                           {a.customer_phone ? ` · ${a.customer_phone}` : ""}
                         </p>
                       </div>

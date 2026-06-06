@@ -63,33 +63,39 @@
     created_at       timestamptz not null default now()
     );
 
-    -- appointments: citas / reservas --------------------------------------------
-    create table if not exists public.appointments (
-    id             uuid primary key default gen_random_uuid(),
-    client_id      uuid references public.clients(id) on delete set null,
-    service_id     uuid references public.services(id) on delete set null,
-    -- Datos del cliente que reserva online (snapshot, por comodidad)
-    customer_name  text,
-    customer_phone text,
-    start_time     timestamptz not null,
-    end_time       timestamptz not null,
-    status         text not null default 'scheduled'
-                    check (status in ('scheduled', 'completed', 'no_show', 'cancelled')),
-    created_at     timestamptz not null default now()
-    );
+-- barbers: profesionales de la barbería ------------------------------------
+-- Cada barbero tiene su propia comisión (% sobre los servicios que realiza).
+create table if not exists public.barbers (
+  id              uuid primary key default gen_random_uuid(),
+  name            text not null,
+  bio             text,
+  specialty       text,
+  avatar_url      text,
+  -- Comisión del barbero en porcentaje (0-100). Ej: 40 = se queda el 40%.
+  commission_rate numeric(5, 2) not null default 50
+                    check (commission_rate >= 0 and commission_rate <= 100),
+  active          boolean not null default true,
+  created_at      timestamptz not null default now()
+);
 
-    create index if not exists idx_appointments_start on public.appointments(start_time);
+-- appointments: citas / reservas --------------------------------------------
+create table if not exists public.appointments (
+  id             uuid primary key default gen_random_uuid(),
+  client_id      uuid references public.clients(id) on delete set null,
+  service_id     uuid references public.services(id) on delete set null,
+  barber_id      uuid references public.barbers(id) on delete set null,
+  -- Datos del cliente que reserva online (snapshot, por comodidad)
+  customer_name  text,
+  customer_phone text,
+  start_time     timestamptz not null,
+  end_time       timestamptz not null,
+  status         text not null default 'scheduled'
+                  check (status in ('scheduled', 'completed', 'no_show', 'cancelled')),
+  created_at     timestamptz not null default now()
+);
 
-    -- ============================================================================
-    --  FUNCIÓN AUXILIAR: ¿el usuario actual es administrador?
-    -- ============================================================================
-    create or replace function public.is_admin()
-    returns boolean
-    language sql
-    security definer
-    set search_path = public
-    stable
-    as $$
+create index if not exists idx_appointments_start on public.appointments(start_time);
+create index if not exists idx_appointments_barber on public.appointments(barber_id);
     select exists (
         select 1 from public.admins a where a.id = auth.uid()
     );
@@ -109,10 +115,7 @@
     alter table public.admins       enable row level security;
     alter table public.clients      enable row level security;
     alter table public.services     enable row level security;
-    alter table public.appointments enable row level security;
-
-    -- ---------------------------------------------------------------------------
-    --  SETTINGS  (lectura pública; escritura solo admin)
+alter table public.barbers      enable row level security;
     -- ---------------------------------------------------------------------------
     drop policy if exists "settings_public_read" on public.settings;
     create policy "settings_public_read"
@@ -153,9 +156,27 @@
     on public.services for delete to authenticated
     using (public.is_admin());
 
-    -- ---------------------------------------------------------------------------
-    --  CLIENTS  (alta pública desde la reserva online; gestión solo admin)
-    -- ---------------------------------------------------------------------------
+-- ---------------------------------------------------------------------------
+--  BARBERS  (lectura pública para la web; escritura solo admin)
+-- ---------------------------------------------------------------------------
+drop policy if exists "barbers_public_read" on public.barbers;
+create policy "barbers_public_read"
+  on public.barbers for select using (true);
+
+drop policy if exists "barbers_admin_insert" on public.barbers;
+create policy "barbers_admin_insert"
+  on public.barbers for insert to authenticated
+  with check (public.is_admin());
+
+drop policy if exists "barbers_admin_update" on public.barbers;
+create policy "barbers_admin_update"
+  on public.barbers for update to authenticated
+  using (public.is_admin()) with check (public.is_admin());
+
+drop policy if exists "barbers_admin_delete" on public.barbers;
+create policy "barbers_admin_delete"
+  on public.barbers for delete to authenticated
+  using (public.is_admin());
     -- Inserción anónima: al reservar online se registra el nombre/teléfono.
     -- NOTA: para producción conviene añadir captcha / rate limit.
     drop policy if exists "clients_public_insert" on public.clients;
@@ -200,3 +221,23 @@
     --   ('Corte clásico', 'Corte de cabello a máquina y tijera', 30, 12.00),
     --   ('Corte + barba', 'Corte completo y arreglo de barba', 45, 18.00),
     --   ('Afeitado tradicional', 'Afeitado a navaja con toalla caliente', 30, 10.00);
+
+    -- insert into public.barbers (name, specialty, bio, commission_rate) values
+    --   ('Carlos', 'Degradados y diseños', 'Especialista en fades y líneas.', 50),
+    --   ('Mario', 'Barba clásica', 'Afeitado tradicional a navaja.', 45),
+    --   ('Luis', 'Cortes modernos', 'Tendencias y estilos actuales.', 55);
+
+    -- ============================================================================
+    --  MIGRACIÓN (si YA habías creado la base sin barberos, ejecuta esto)
+    -- ============================================================================
+    --  Añade la tabla `barbers`, sus políticas y la columna barber_id ejecutando
+    --  de nuevo TODO este script (usa "create table if not exists" y
+    --  "drop policy if exists", por lo que es seguro re-ejecutarlo). Si la tabla
+    --  appointments ya existía sin la columna, ejecuta además:
+    --
+    --     alter table public.appointments
+    --       add column if not exists barber_id uuid references public.barbers(id)
+    --       on delete set null;
+    --     create index if not exists idx_appointments_barber
+    --       on public.appointments(barber_id);
+    -- ============================================================================

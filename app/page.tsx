@@ -1,7 +1,7 @@
 import { getSettings } from "@/lib/settings";
 import { createClient } from "@/lib/supabase/server";
 import { BookingForm } from "@/components/BookingForm";
-import type { Service } from "@/lib/types";
+import type { Barber, Service } from "@/lib/types";
 
 // ============================================================================
 //  Web pública de LA barbería (sin login). Página principal del sitio:
@@ -13,15 +13,27 @@ export default async function HomePage() {
   const settings = await getSettings();
 
   const supabase = createClient();
-  const { data } = await supabase
-    .from("services")
-    .select("id, name, description, duration_minutes, price")
-    .eq("active", true)
-    .order("price", { ascending: true });
+  const [{ data: serviceData }, { data: barberData }] = await Promise.all([
+    supabase
+      .from("services")
+      .select("id, name, description, duration_minutes, price")
+      .eq("active", true)
+      .order("price", { ascending: true }),
+    supabase
+      .from("barbers")
+      .select("id, name, bio, specialty, avatar_url")
+      .eq("active", true)
+      .order("created_at", { ascending: true }),
+  ]);
 
-  const services = (data ?? []) as Pick<
+  const services = (serviceData ?? []) as Pick<
     Service,
     "id" | "name" | "description" | "duration_minutes" | "price"
+  >[];
+
+  const barbers = (barberData ?? []) as Pick<
+    Barber,
+    "id" | "name" | "bio" | "specialty" | "avatar_url"
   >[];
 
   const accent = settings.accent_color ?? "#22d3ee";
@@ -48,6 +60,9 @@ export default async function HomePage() {
           <nav className="flex items-center gap-6 text-sm text-slate-300">
             <a href="#servicios" className="hidden hover:text-white sm:block">
               Servicios
+            </a>
+            <a href="#equipo" className="hidden hover:text-white sm:block">
+              Equipo
             </a>
             {settings.instagram && (
               <a
@@ -164,19 +179,75 @@ export default async function HomePage() {
           )}
         </section>
 
+        {/* Equipo / barberos */}
+        {barbers.length > 0 && (
+          <section id="equipo" className="mx-auto max-w-6xl px-6 py-16">
+            <div className="mb-10 text-center">
+              <h2 className="text-3xl font-bold tracking-tight sm:text-4xl">
+                Nuestro equipo
+              </h2>
+              <p className="mt-2 text-slate-400">
+                Profesionales para cada estilo.
+              </p>
+            </div>
+            <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
+              {barbers.map((b) => (
+                <div
+                  key={b.id}
+                  className="glass group rounded-2xl p-6 text-center transition hover:-translate-y-1"
+                >
+                  <div className="mx-auto mb-4 h-20 w-20 overflow-hidden rounded-full ring-2 ring-white/10">
+                    {b.avatar_url ? (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img
+                        src={b.avatar_url}
+                        alt={b.name}
+                        className="h-full w-full object-cover"
+                      />
+                    ) : (
+                      <div
+                        className="grid h-full w-full place-items-center text-2xl font-black text-ink-900"
+                        style={{ backgroundColor: accent }}
+                      >
+                        {b.name.charAt(0).toUpperCase()}
+                      </div>
+                    )}
+                  </div>
+                  <h3 className="text-lg font-semibold text-white">{b.name}</h3>
+                  {b.specialty && (
+                    <p
+                      className="mt-1 text-sm font-medium"
+                      style={{ color: accent }}
+                    >
+                      {b.specialty}
+                    </p>
+                  )}
+                  {b.bio && (
+                    <p className="mt-2 text-sm text-slate-400">{b.bio}</p>
+                  )}
+                </div>
+              ))}
+            </div>
+          </section>
+        )}
+
         {/* Reserva */}
         <section id="reservar" className="mx-auto max-w-6xl px-6 py-16">
-          <div className="mx-auto max-w-lg">
+          <div className="mx-auto max-w-2xl">
             <div className="mb-8 text-center">
               <h2 className="text-3xl font-bold tracking-tight sm:text-4xl">
                 Reserva tu turno
               </h2>
               <p className="mt-2 text-slate-400">
-                Completa tus datos y elige el horario.
+                Elige barbero, servicio, día y hora.
               </p>
             </div>
-            <div className="gradient-border rounded-2xl bg-ink-700/70 p-8 shadow-glow-violet backdrop-blur">
-              <BookingForm services={services} accentColor={accent} />
+            <div className="gradient-border rounded-2xl bg-ink-700/70 p-6 shadow-glow-violet backdrop-blur sm:p-8">
+              <BookingForm
+                services={services}
+                barbers={barbers}
+                accentColor={accent}
+              />
             </div>
           </div>
         </section>

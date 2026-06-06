@@ -14,6 +14,7 @@ export async function createAppointmentAction(formData: FormData) {
 
   const serviceId = String(formData.get("service_id") || "") || null;
   const clientId = String(formData.get("client_id") || "") || null;
+  const barberId = String(formData.get("barber_id") || "") || null;
   const start = new Date(String(formData.get("start_time")));
 
   // Duración según el servicio (default 30 min).
@@ -42,6 +43,7 @@ export async function createAppointmentAction(formData: FormData) {
   await supabase.from("appointments").insert({
     client_id: clientId,
     service_id: serviceId,
+    barber_id: barberId,
     customer_name: customerName,
     start_time: start.toISOString(),
     end_time: end.toISOString(),

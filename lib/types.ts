@@ -40,10 +40,23 @@ export interface Service {
   created_at: string;
 }
 
+export interface Barber {
+  id: string;
+  name: string;
+  bio: string | null;
+  specialty: string | null;
+  avatar_url: string | null;
+  /** Comisión del barbero en porcentaje (0-100). */
+  commission_rate: number;
+  active: boolean;
+  created_at: string;
+}
+
 export interface Appointment {
   id: string;
   client_id: string | null;
   service_id: string | null;
+  barber_id: string | null;
   customer_name: string | null;
   customer_phone: string | null;
   start_time: string;

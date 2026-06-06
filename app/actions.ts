@@ -13,6 +13,7 @@ export async function bookAppointment(formData: FormData) {
   const name = String(formData.get("name") ?? "").trim();
   const phone = String(formData.get("phone") ?? "").trim();
   const serviceId = String(formData.get("service_id") || "") || null;
+  const barberId = String(formData.get("barber_id") || "") || null;
   const startStr = String(formData.get("start_time"));
 
   if (!name || !startStr) {
@@ -47,6 +48,7 @@ export async function bookAppointment(formData: FormData) {
   const { error } = await supabase.from("appointments").insert({
     client_id: client?.id ?? null,
     service_id: serviceId,
+    barber_id: barberId,
     customer_name: name,
     customer_phone: phone || null,
     start_time: start.toISOString(),
