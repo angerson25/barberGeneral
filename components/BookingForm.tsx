@@ -11,14 +11,22 @@ type ServiceLite = Pick<
 >;
 type BarberLite = Pick<Barber, "id" | "name" | "specialty">;
 
-// Genera franjas horarias (09:00–20:00 cada 30 min).
-function buildSlots(): string[] {
+// Convierte "HH:MM" a minutos desde medianoche.
+function toMinutes(hhmm: string): number {
+  const [h, m] = hhmm.split(":").map(Number);
+  return (h || 0) * 60 + (m || 0);
+}
+
+// Genera franjas horarias entre apertura y cierre según el intervalo.
+function buildSlots(open: string, close: string, step: number): string[] {
+  const start = toMinutes(open);
+  const end = toMinutes(close);
+  const inc = step > 0 ? step : 30;
   const slots: string[] = [];
-  for (let h = 9; h <= 20; h++) {
-    for (const m of [0, 30]) {
-      if (h === 20 && m === 30) break;
-      slots.push(`${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}`);
-    }
+  for (let t = start; t < end; t += inc) {
+    const h = Math.floor(t / 60);
+    const m = t % 60;
+    slots.push(`${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}`);
   }
   return slots;
 }
@@ -28,13 +36,22 @@ export function BookingForm({
   services,
   barbers = [],
   accentColor,
+  openTime = "09:00",
+  closeTime = "20:00",
+  slotMinutes = 30,
 }: {
   services: ServiceLite[];
   barbers?: BarberLite[];
   accentColor?: string;
+  openTime?: string;
+  closeTime?: string;
+  slotMinutes?: number;
 }) {
   const accent = accentColor ?? "#22d3ee";
-  const slots = useMemo(buildSlots, []);
+  const slots = useMemo(
+    () => buildSlots(openTime, closeTime, slotMinutes),
+    [openTime, closeTime, slotMinutes]
+  );
 
   const [pending, setPending] = useState(false);
   const [result, setResult] = useState<{ ok: boolean; message: string } | null>(

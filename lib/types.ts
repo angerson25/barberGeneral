@@ -19,6 +19,9 @@ export interface Settings {
   accent_color: string | null;
   about: string | null;
   opening_hours: string | null;
+  open_time: string | null;
+  close_time: string | null;
+  slot_minutes: number | null;
   updated_at: string;
 }
 

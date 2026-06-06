@@ -30,6 +30,10 @@
     accent_color  text default '#f59e0b',
     about         text,
     opening_hours text,
+    -- Horario de atención (alimenta las franjas del calendario de reservas):
+    open_time     text default '09:00',   -- hora de apertura HH:MM
+    close_time    text default '20:00',   -- hora de cierre HH:MM
+    slot_minutes  int  default 30 check (slot_minutes > 0),  -- duración de cada franja
     updated_at    timestamptz not null default now(),
     constraint settings_singleton check (id = 1)  -- fuerza una única fila
     );
@@ -259,4 +263,60 @@ create policy "barbers_admin_delete"
     --       on delete set null;
     --     create index if not exists idx_appointments_barber
     --       on public.appointments(barber_id);
+    -- ============================================================================
+
+    -- ============================================================================
+    --  MIGRACIÓN DE COLUMNAS (ejecútalo si una tabla se creó con versión antigua
+    --  y faltan columnas, p. ej. error "Could not find the 'X' column").
+    --  Es seguro: usa "add column if not exists".
+    -- ============================================================================
+    --  SERVICES
+    alter table public.services add column if not exists description text;
+    alter table public.services add column if not exists duration_minutes int not null default 30;
+    alter table public.services add column if not exists price numeric(10,2) not null default 0;
+    alter table public.services add column if not exists active boolean not null default true;
+    alter table public.services add column if not exists created_at timestamptz not null default now();
+
+    --  BARBERS
+    alter table public.barbers add column if not exists bio text;
+    alter table public.barbers add column if not exists specialty text;
+    alter table public.barbers add column if not exists avatar_url text;
+    alter table public.barbers add column if not exists commission_rate numeric(5,2) not null default 50;
+    alter table public.barbers add column if not exists active boolean not null default true;
+    alter table public.barbers add column if not exists created_at timestamptz not null default now();
+
+    --  APPOINTMENTS
+    alter table public.appointments add column if not exists barber_id uuid references public.barbers(id) on delete set null;
+    alter table public.appointments add column if not exists customer_name text;
+    alter table public.appointments add column if not exists customer_phone text;
+
+    --  SETTINGS
+    alter table public.settings add column if not exists about text;
+    alter table public.settings add column if not exists opening_hours text;
+    alter table public.settings add column if not exists instagram text;
+    alter table public.settings add column if not exists primary_color text default '#111827';
+    alter table public.settings add column if not exists accent_color text default '#f59e0b';
+    alter table public.settings add column if not exists open_time text default '09:00';
+    alter table public.settings add column if not exists close_time text default '20:00';
+    alter table public.settings add column if not exists slot_minutes int default 30;
+
+    --  Tras ejecutar lo anterior, refresca la caché de PostgREST:
+    notify pgrst, 'reload schema';
+    -- ============================================================================
+
+    -- ============================================================================
+    --  LIMPIEZA DE LA VERSIÓN ANTIGUA MULTI-TENANT (SaaS)
+    -- ============================================================================
+    --  Si la base se creó con el modelo SaaS, quedaron columnas `tenant_id`
+    --  NOT NULL que ahora rompen los inserts (single-tenant). Las eliminamos.
+    --  Es seguro: usa "drop column if exists".
+    -- ============================================================================
+    alter table public.services     drop column if exists tenant_id;
+    alter table public.barbers      drop column if exists tenant_id;
+    alter table public.appointments drop column if exists tenant_id;
+    alter table public.clients      drop column if exists tenant_id;
+    alter table public.settings     drop column if exists tenant_id;
+
+    --  Refresca de nuevo la caché del API tras los cambios:
+    notify pgrst, 'reload schema';
     -- ============================================================================

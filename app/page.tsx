@@ -247,6 +247,9 @@ export default async function HomePage() {
                 services={services}
                 barbers={barbers}
                 accentColor={accent}
+                openTime={settings.open_time ?? "09:00"}
+                closeTime={settings.close_time ?? "20:00"}
+                slotMinutes={settings.slot_minutes ?? 30}
               />
             </div>
           </div>

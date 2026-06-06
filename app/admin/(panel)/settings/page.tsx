@@ -52,6 +52,44 @@ export default async function SettingsPage() {
             </div>
           </div>
 
+          <div className="rounded-lg border border-gray-200 p-4">
+            <p className="mb-1 text-sm font-semibold">Horario de reservas online</p>
+            <p className="mb-3 text-xs text-gray-500">
+              Define las horas disponibles en el calendario de reserva.
+            </p>
+            <div className="grid gap-4 sm:grid-cols-3">
+              <div>
+                <Label htmlFor="open_time">Apertura</Label>
+                <Input
+                  id="open_time"
+                  name="open_time"
+                  type="time"
+                  defaultValue={s.open_time ?? "09:00"}
+                />
+              </div>
+              <div>
+                <Label htmlFor="close_time">Cierre</Label>
+                <Input
+                  id="close_time"
+                  name="close_time"
+                  type="time"
+                  defaultValue={s.close_time ?? "20:00"}
+                />
+              </div>
+              <div>
+                <Label htmlFor="slot_minutes">Intervalo (min)</Label>
+                <Input
+                  id="slot_minutes"
+                  name="slot_minutes"
+                  type="number"
+                  min={5}
+                  step={5}
+                  defaultValue={s.slot_minutes ?? 30}
+                />
+              </div>
+            </div>
+          </div>
+
           <div className="grid gap-4 sm:grid-cols-2">
             <div>
               <Label htmlFor="primary_color">Color principal</Label>

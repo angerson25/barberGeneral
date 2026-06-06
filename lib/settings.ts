@@ -18,6 +18,9 @@ const FALLBACK: Settings = {
   accent_color: "#f59e0b",
   about: null,
   opening_hours: null,
+  open_time: "09:00",
+  close_time: "20:00",
+  slot_minutes: 30,
   updated_at: new Date().toISOString(),
 };
 
