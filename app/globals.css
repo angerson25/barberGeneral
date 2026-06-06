@@ -9,3 +9,103 @@
 body {
   @apply bg-gray-50 text-gray-900 antialiased;
 }
+
+/* ==========================================================================
+   Tema FUTURISTA para la web pública (.theme-future)
+   Fondo oscuro, glassmorphism, glow neón y rejilla.
+   ========================================================================== */
+.theme-future {
+  color-scheme: dark;
+  background-color: #05060a;
+  color: #e5e7eb;
+}
+
+/* Rejilla sutil de fondo */
+.bg-grid {
+  background-image: linear-gradient(
+      to right,
+      rgba(148, 163, 184, 0.06) 1px,
+      transparent 1px
+    ),
+    linear-gradient(to bottom, rgba(148, 163, 184, 0.06) 1px, transparent 1px);
+  background-size: 44px 44px;
+}
+
+/* Resplandor radial de fondo */
+.bg-aurora {
+  background:
+    radial-gradient(60% 50% at 20% 10%, rgba(34, 211, 238, 0.18), transparent 60%),
+    radial-gradient(50% 45% at 85% 15%, rgba(168, 85, 247, 0.18), transparent 60%),
+    radial-gradient(45% 40% at 50% 100%, rgba(236, 72, 153, 0.12), transparent 60%);
+}
+
+/* Tarjeta de cristal */
+.glass {
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+}
+
+/* Texto con degradado */
+.text-gradient {
+  background: linear-gradient(110deg, #22d3ee 0%, #a855f7 50%, #ec4899 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  background-size: 200% auto;
+}
+
+/* Borde con degradado animado */
+.gradient-border {
+  position: relative;
+}
+.gradient-border::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  padding: 1px;
+  background: linear-gradient(120deg, #22d3ee, #a855f7, #ec4899);
+  background-size: 200% auto;
+  -webkit-mask:
+    linear-gradient(#000 0 0) content-box,
+    linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+  animation: gradient-pan 8s ease infinite;
+  pointer-events: none;
+}
+
+@keyframes gradient-pan {
+  0%,
+  100% {
+    background-position: 0% 50%;
+  }
+  50% {
+    background-position: 100% 50%;
+  }
+}
+
+/* Inputs sobre tema oscuro */
+.input-dark {
+  width: 100%;
+  border-radius: 0.6rem;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(255, 255, 255, 0.04);
+  padding: 0.6rem 0.85rem;
+  font-size: 0.875rem;
+  color: #f1f5f9;
+  transition: border-color 0.15s, box-shadow 0.15s;
+}
+.input-dark::placeholder {
+  color: rgba(226, 232, 240, 0.4);
+}
+.input-dark:focus {
+  outline: none;
+  border-color: rgba(34, 211, 238, 0.6);
+  box-shadow: 0 0 0 3px rgba(34, 211, 238, 0.15);
+}
+.input-dark option {
+  color: #0f172a;
+}

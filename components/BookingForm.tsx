@@ -2,11 +2,9 @@
 
 import { useState } from "react";
 import { bookAppointment } from "@/app/actions";
-import { Button } from "@/components/ui/Button";
-import { Input, Label, Select } from "@/components/ui/Input";
 import type { Service } from "@/lib/types";
 
-// Formulario de reserva pública (sin login). Muestra feedback del resultado.
+// Formulario de reserva pública (sin login), estilizado para el tema oscuro.
 export function BookingForm({
   services,
   accentColor,
@@ -29,11 +27,11 @@ export function BookingForm({
 
   if (result?.ok) {
     return (
-      <div className="rounded-lg bg-green-50 p-6 text-center text-green-700">
-        <p className="text-lg font-semibold">{result.message}</p>
+      <div className="rounded-xl border border-emerald-400/20 bg-emerald-400/10 p-6 text-center">
+        <p className="text-lg font-semibold text-emerald-300">{result.message}</p>
         <button
           onClick={() => setResult(null)}
-          className="mt-3 text-sm underline"
+          className="mt-3 text-sm text-emerald-200/80 underline hover:text-emerald-100"
         >
           Hacer otra reserva
         </button>
@@ -44,41 +42,73 @@ export function BookingForm({
   return (
     <form action={onSubmit} className="space-y-4">
       {result && !result.ok && (
-        <p className="rounded-md bg-red-50 p-2 text-sm text-red-700">
+        <p className="rounded-lg border border-red-400/20 bg-red-400/10 p-2.5 text-sm text-red-300">
           {result.message}
         </p>
       )}
       <div>
-        <Label htmlFor="name">Tu nombre</Label>
-        <Input id="name" name="name" required />
+        <label
+          htmlFor="name"
+          className="mb-1.5 block text-sm font-medium text-slate-300"
+        >
+          Tu nombre
+        </label>
+        <input id="name" name="name" required className="input-dark" />
       </div>
       <div>
-        <Label htmlFor="phone">Teléfono</Label>
-        <Input id="phone" name="phone" type="tel" placeholder="Opcional" />
+        <label
+          htmlFor="phone"
+          className="mb-1.5 block text-sm font-medium text-slate-300"
+        >
+          Teléfono
+        </label>
+        <input
+          id="phone"
+          name="phone"
+          type="tel"
+          placeholder="Opcional"
+          className="input-dark"
+        />
       </div>
       <div>
-        <Label htmlFor="service_id">Servicio</Label>
-        <Select id="service_id" name="service_id">
+        <label
+          htmlFor="service_id"
+          className="mb-1.5 block text-sm font-medium text-slate-300"
+        >
+          Servicio
+        </label>
+        <select id="service_id" name="service_id" className="input-dark">
           <option value="">— Elige un servicio —</option>
           {services.map((s) => (
             <option key={s.id} value={s.id}>
               {s.name} · {s.duration_minutes} min · ${Number(s.price).toFixed(2)}
             </option>
           ))}
-        </Select>
+        </select>
       </div>
       <div>
-        <Label htmlFor="start_time">Fecha y hora</Label>
-        <Input id="start_time" name="start_time" type="datetime-local" required />
+        <label
+          htmlFor="start_time"
+          className="mb-1.5 block text-sm font-medium text-slate-300"
+        >
+          Fecha y hora
+        </label>
+        <input
+          id="start_time"
+          name="start_time"
+          type="datetime-local"
+          required
+          className="input-dark"
+        />
       </div>
-      <Button
+      <button
         type="submit"
-        className="w-full"
         disabled={pending}
-        style={accentColor ? { backgroundColor: accentColor } : undefined}
+        className="w-full rounded-full px-5 py-3 text-sm font-semibold text-ink-900 shadow-glow transition hover:scale-[1.02] disabled:cursor-not-allowed disabled:opacity-60"
+        style={{ backgroundColor: accentColor ?? "#22d3ee" }}
       >
         {pending ? "Reservando..." : "Reservar turno"}
-      </Button>
+      </button>
     </form>
   );
 }
