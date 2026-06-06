@@ -1,55 +1,51 @@
 -- ============================================================================
---  Barber SaaS — Esquema multi-tenant para Supabase (PostgreSQL)
+--  Barbería — Esquema para una sola barbería (single-tenant) en Supabase
 -- ============================================================================
---  Ejecuta este script en el SQL Editor de Supabase (o vía `supabase db push`).
+--  Ejecuta este script en el SQL Editor de Supabase.
 --
---  Modelo multi-tenant:
---    - Cada barbería es un "tenant" (tabla `tenants`).
---    - Toda tabla de negocio lleva `tenant_id`.
---    - El acceso se aísla por tenant mediante RLS + la tabla `memberships`,
---      que relaciona un usuario autenticado (auth.users) con un tenant y un rol.
---    - La identificación pública del tenant se hace por `tenants.slug`
---      (usado en la URL: /b/[tenantSlug] o [tenantSlug]/dashboard).
+--  Modelo:
+--    - UNA barbería por despliegue (sin tenants ni slugs).
+--    - La web es PÚBLICA para los clientes (ver servicios y reservar, sin login).
+--    - Solo el/los administradores inician sesión para gestionar el panel.
+--    - Quién es administrador se define en la tabla `admins` (se inserta a mano
+--      o vía seed; NO hay registro público).
 -- ============================================================================
 
--- Extensiones útiles --------------------------------------------------------
 create extension if not exists "pgcrypto";  -- para gen_random_uuid()
 
 -- ============================================================================
 --  TABLAS
 -- ============================================================================
 
--- tenants: cada barbería ----------------------------------------------------
-create table if not exists public.tenants (
-  id         uuid primary key default gen_random_uuid(),
-  name       text not null,
-  slug       text not null unique,          -- identificador en la URL
-  created_at timestamptz not null default now()
+-- settings: configuración/diseño de la barbería (una sola fila) --------------
+create table if not exists public.settings (
+  id            int primary key default 1,
+  name          text not null default 'Mi Barbería',
+  tagline       text default 'Cortes con estilo',
+  phone         text,
+  address       text,
+  instagram     text,
+  -- Personalización de diseño:
+  primary_color text default '#111827',
+  accent_color  text default '#f59e0b',
+  about         text,
+  opening_hours text,
+  updated_at    timestamptz not null default now(),
+  constraint settings_singleton check (id = 1)  -- fuerza una única fila
 );
 
--- profiles: extiende auth.users ---------------------------------------------
--- El id es el MISMO que auth.users.id (relación 1:1).
-create table if not exists public.profiles (
+-- admins: usuarios autorizados a gestionar el panel --------------------------
+-- El id coincide con auth.users.id. Se inserta manualmente tras crear el
+-- usuario en Supabase Auth (no hay registro público).
+create table if not exists public.admins (
   id         uuid primary key references auth.users(id) on delete cascade,
   full_name  text,
-  phone      text,
   created_at timestamptz not null default now()
 );
 
--- memberships: relaciona un usuario con una barbería y su rol ---------------
-create table if not exists public.memberships (
-  id         uuid primary key default gen_random_uuid(),
-  user_id    uuid not null references public.profiles(id) on delete cascade,
-  tenant_id  uuid not null references public.tenants(id) on delete cascade,
-  role       text not null default 'barber' check (role in ('owner', 'barber')),
-  created_at timestamptz not null default now(),
-  unique (user_id, tenant_id)
-);
-
--- clients: clientes de cada barbería ----------------------------------------
+-- clients: clientes de la barbería ------------------------------------------
 create table if not exists public.clients (
   id         uuid primary key default gen_random_uuid(),
-  tenant_id  uuid not null references public.tenants(id) on delete cascade,
   name       text not null,
   phone      text,
   notes      text,
@@ -59,43 +55,35 @@ create table if not exists public.clients (
 -- services: servicios (corte, barba, combos...) -----------------------------
 create table if not exists public.services (
   id               uuid primary key default gen_random_uuid(),
-  tenant_id        uuid not null references public.tenants(id) on delete cascade,
   name             text not null,
+  description      text,
   duration_minutes int not null default 30 check (duration_minutes > 0),
   price            numeric(10, 2) not null default 0 check (price >= 0),
+  active           boolean not null default true,
   created_at       timestamptz not null default now()
 );
 
 -- appointments: citas / reservas --------------------------------------------
 create table if not exists public.appointments (
-  id          uuid primary key default gen_random_uuid(),
-  tenant_id   uuid not null references public.tenants(id) on delete cascade,
-  client_id   uuid references public.clients(id) on delete set null,
-  service_id  uuid references public.services(id) on delete set null,
-  barber_id   uuid references public.profiles(id) on delete set null,
-  start_time  timestamptz not null,
-  end_time    timestamptz not null,
-  status      text not null default 'scheduled'
-              check (status in ('scheduled', 'completed', 'no_show', 'cancelled')),
-  created_at  timestamptz not null default now()
+  id             uuid primary key default gen_random_uuid(),
+  client_id      uuid references public.clients(id) on delete set null,
+  service_id     uuid references public.services(id) on delete set null,
+  -- Datos del cliente que reserva online (snapshot, por comodidad)
+  customer_name  text,
+  customer_phone text,
+  start_time     timestamptz not null,
+  end_time       timestamptz not null,
+  status         text not null default 'scheduled'
+                 check (status in ('scheduled', 'completed', 'no_show', 'cancelled')),
+  created_at     timestamptz not null default now()
 );
 
--- Índices para consultas frecuentes por tenant ------------------------------
-create index if not exists idx_memberships_tenant on public.memberships(tenant_id);
-create index if not exists idx_memberships_user   on public.memberships(user_id);
-create index if not exists idx_clients_tenant      on public.clients(tenant_id);
-create index if not exists idx_services_tenant     on public.services(tenant_id);
-create index if not exists idx_appointments_tenant on public.appointments(tenant_id);
-create index if not exists idx_appointments_start  on public.appointments(tenant_id, start_time);
+create index if not exists idx_appointments_start on public.appointments(start_time);
 
 -- ============================================================================
---  FUNCIONES AUXILIARES (helper functions para RLS)
+--  FUNCIÓN AUXILIAR: ¿el usuario actual es administrador?
 -- ============================================================================
--- Mantener la lógica de pertenencia en funciones SECURITY DEFINER evita
--- recursión de políticas y centraliza la comprobación de tenant/rol.
-
--- ¿El usuario actual es miembro de este tenant? -----------------------------
-create or replace function public.is_member_of(p_tenant_id uuid)
+create or replace function public.is_admin()
 returns boolean
 language sql
 security definer
@@ -103,238 +91,112 @@ set search_path = public
 stable
 as $$
   select exists (
-    select 1
-    from public.memberships m
-    where m.tenant_id = p_tenant_id
-      and m.user_id = auth.uid()
-  );
-$$;
-
--- ¿El usuario actual es OWNER de este tenant? -------------------------------
-create or replace function public.is_owner_of(p_tenant_id uuid)
-returns boolean
-language sql
-security definer
-set search_path = public
-stable
-as $$
-  select exists (
-    select 1
-    from public.memberships m
-    where m.tenant_id = p_tenant_id
-      and m.user_id = auth.uid()
-      and m.role = 'owner'
+    select 1 from public.admins a where a.id = auth.uid()
   );
 $$;
 
 -- ============================================================================
---  TRIGGER: crear profile automáticamente al registrarse un usuario
+--  SEED: fila única de settings
 -- ============================================================================
-create or replace function public.handle_new_user()
-returns trigger
-language plpgsql
-security definer
-set search_path = public
-as $$
-begin
-  insert into public.profiles (id, full_name)
-  values (new.id, coalesce(new.raw_user_meta_data->>'full_name', ''))
-  on conflict (id) do nothing;
-  return new;
-end;
-$$;
-
-drop trigger if exists on_auth_user_created on auth.users;
-create trigger on_auth_user_created
-  after insert on auth.users
-  for each row execute function public.handle_new_user();
+insert into public.settings (id, name, tagline)
+values (1, 'Mi Barbería', 'Cortes con estilo')
+on conflict (id) do nothing;
 
 -- ============================================================================
 --  ROW LEVEL SECURITY
 -- ============================================================================
-alter table public.tenants     enable row level security;
-alter table public.profiles    enable row level security;
-alter table public.memberships enable row level security;
-alter table public.clients     enable row level security;
-alter table public.services    enable row level security;
+alter table public.settings     enable row level security;
+alter table public.admins       enable row level security;
+alter table public.clients      enable row level security;
+alter table public.services     enable row level security;
 alter table public.appointments enable row level security;
 
 -- ---------------------------------------------------------------------------
---  TENANTS
+--  SETTINGS  (lectura pública; escritura solo admin)
 -- ---------------------------------------------------------------------------
--- Lectura pública del tenant (necesaria para la página pública de reservas
--- /b/[slug], donde el visitante no está autenticado). Solo expone name/slug.
-drop policy if exists "tenants_public_read" on public.tenants;
-create policy "tenants_public_read"
-  on public.tenants for select
-  using (true);
+drop policy if exists "settings_public_read" on public.settings;
+create policy "settings_public_read"
+  on public.settings for select using (true);
 
--- Cualquier usuario autenticado puede crear una barbería (se vuelve owner
--- vía server action que inserta el membership). 
-drop policy if exists "tenants_insert_authenticated" on public.tenants;
-create policy "tenants_insert_authenticated"
-  on public.tenants for insert to authenticated
-  with check (true);
-
--- Solo el owner puede actualizar/borrar su barbería.
-drop policy if exists "tenants_update_owner" on public.tenants;
-create policy "tenants_update_owner"
-  on public.tenants for update to authenticated
-  using (public.is_owner_of(id))
-  with check (public.is_owner_of(id));
-
-drop policy if exists "tenants_delete_owner" on public.tenants;
-create policy "tenants_delete_owner"
-  on public.tenants for delete to authenticated
-  using (public.is_owner_of(id));
+drop policy if exists "settings_admin_update" on public.settings;
+create policy "settings_admin_update"
+  on public.settings for update to authenticated
+  using (public.is_admin()) with check (public.is_admin());
 
 -- ---------------------------------------------------------------------------
---  PROFILES
+--  ADMINS  (cada admin ve su propio registro; gestión manual desde Supabase)
 -- ---------------------------------------------------------------------------
--- Cada usuario gestiona solo su propio perfil.
-drop policy if exists "profiles_select_own" on public.profiles;
-create policy "profiles_select_own"
-  on public.profiles for select to authenticated
+drop policy if exists "admins_select_own" on public.admins;
+create policy "admins_select_own"
+  on public.admins for select to authenticated
   using (id = auth.uid());
 
-drop policy if exists "profiles_update_own" on public.profiles;
-create policy "profiles_update_own"
-  on public.profiles for update to authenticated
-  using (id = auth.uid())
-  with check (id = auth.uid());
-
-drop policy if exists "profiles_insert_own" on public.profiles;
-create policy "profiles_insert_own"
-  on public.profiles for insert to authenticated
-  with check (id = auth.uid());
-
 -- ---------------------------------------------------------------------------
---  MEMBERSHIPS
+--  SERVICES  (lectura pública para la web; escritura solo admin)
 -- ---------------------------------------------------------------------------
--- El usuario ve sus propias membresías (para saber a qué tenants pertenece).
-drop policy if exists "memberships_select_own" on public.memberships;
-create policy "memberships_select_own"
-  on public.memberships for select to authenticated
-  using (user_id = auth.uid());
-
--- Insertar membership: o bien es la primera (te conviertes en owner de un
--- tenant que acabas de crear), o un owner del tenant invita a otro usuario.
-drop policy if exists "memberships_insert" on public.memberships;
-create policy "memberships_insert"
-  on public.memberships for insert to authenticated
-  with check (
-    user_id = auth.uid()              -- te unes a ti mismo (creación inicial)
-    or public.is_owner_of(tenant_id)  -- un owner agrega a otro barbero
-  );
-
--- Solo el owner del tenant puede modificar/eliminar membresías.
-drop policy if exists "memberships_update_owner" on public.memberships;
-create policy "memberships_update_owner"
-  on public.memberships for update to authenticated
-  using (public.is_owner_of(tenant_id))
-  with check (public.is_owner_of(tenant_id));
-
-drop policy if exists "memberships_delete_owner" on public.memberships;
-create policy "memberships_delete_owner"
-  on public.memberships for delete to authenticated
-  using (public.is_owner_of(tenant_id));
-
--- ---------------------------------------------------------------------------
---  CLIENTS  (cualquier miembro del tenant gestiona los clientes)
--- ---------------------------------------------------------------------------
-drop policy if exists "clients_select_member" on public.clients;
-create policy "clients_select_member"
-  on public.clients for select to authenticated
-  using (public.is_member_of(tenant_id));
-
-drop policy if exists "clients_insert_member" on public.clients;
-create policy "clients_insert_member"
-  on public.clients for insert to authenticated
-  with check (public.is_member_of(tenant_id));
-
-drop policy if exists "clients_update_member" on public.clients;
-create policy "clients_update_member"
-  on public.clients for update to authenticated
-  using (public.is_member_of(tenant_id))
-  with check (public.is_member_of(tenant_id));
-
-drop policy if exists "clients_delete_member" on public.clients;
-create policy "clients_delete_member"
-  on public.clients for delete to authenticated
-  using (public.is_member_of(tenant_id));
-
--- Inserción anónima de clientes desde la reserva pública /b/[slug]/book.
--- Permite registrar el nombre/teléfono del visitante al reservar.
--- NOTA: para producción restringe esto (captcha / rate limit / service role).
-drop policy if exists "clients_insert_public" on public.clients;
-create policy "clients_insert_public"
-  on public.clients for insert to anon
-  with check (true);
-
--- ---------------------------------------------------------------------------
---  SERVICES  (lectura pública para la página de reservas; escritura: owner)
--- ---------------------------------------------------------------------------
--- Lectura pública: los clientes finales necesitan ver los servicios para
--- reservar en /b/[slug]/book.
 drop policy if exists "services_public_read" on public.services;
 create policy "services_public_read"
-  on public.services for select
-  using (true);
+  on public.services for select using (true);
 
--- Solo el OWNER del tenant puede crear/editar/borrar servicios.
-drop policy if exists "services_insert_owner" on public.services;
-create policy "services_insert_owner"
+drop policy if exists "services_admin_insert" on public.services;
+create policy "services_admin_insert"
   on public.services for insert to authenticated
-  with check (public.is_owner_of(tenant_id));
+  with check (public.is_admin());
 
-drop policy if exists "services_update_owner" on public.services;
-create policy "services_update_owner"
+drop policy if exists "services_admin_update" on public.services;
+create policy "services_admin_update"
   on public.services for update to authenticated
-  using (public.is_owner_of(tenant_id))
-  with check (public.is_owner_of(tenant_id));
+  using (public.is_admin()) with check (public.is_admin());
 
-drop policy if exists "services_delete_owner" on public.services;
-create policy "services_delete_owner"
+drop policy if exists "services_admin_delete" on public.services;
+create policy "services_admin_delete"
   on public.services for delete to authenticated
-  using (public.is_owner_of(tenant_id));
+  using (public.is_admin());
 
 -- ---------------------------------------------------------------------------
---  APPOINTMENTS
+--  CLIENTS  (alta pública desde la reserva online; gestión solo admin)
 -- ---------------------------------------------------------------------------
--- Lectura: solo miembros del tenant ven la agenda interna.
-drop policy if exists "appointments_select_member" on public.appointments;
-create policy "appointments_select_member"
-  on public.appointments for select to authenticated
-  using (public.is_member_of(tenant_id));
+-- Inserción anónima: al reservar online se registra el nombre/teléfono.
+-- NOTA: para producción conviene añadir captcha / rate limit.
+drop policy if exists "clients_public_insert" on public.clients;
+create policy "clients_public_insert"
+  on public.clients for insert to anon with check (true);
 
--- Inserción interna (panel): miembro del tenant.
-drop policy if exists "appointments_insert_member" on public.appointments;
-create policy "appointments_insert_member"
-  on public.appointments for insert to authenticated
-  with check (public.is_member_of(tenant_id));
+drop policy if exists "clients_admin_all" on public.clients;
+create policy "clients_admin_all"
+  on public.clients for all to authenticated
+  using (public.is_admin()) with check (public.is_admin());
 
--- Reservas públicas (cliente final NO autenticado) desde /b/[slug]/book.
--- Se permite crear cita en estado 'scheduled' para cualquier tenant existente.
--- NOTA: en producción conviene restringir esto con un endpoint server-side
--- (service role) o validación adicional anti-spam. Aquí queda como base.
-drop policy if exists "appointments_insert_public" on public.appointments;
-create policy "appointments_insert_public"
+-- ---------------------------------------------------------------------------
+--  APPOINTMENTS  (reserva pública en 'scheduled'; gestión solo admin)
+-- ---------------------------------------------------------------------------
+drop policy if exists "appointments_public_insert" on public.appointments;
+create policy "appointments_public_insert"
   on public.appointments for insert to anon
   with check (status = 'scheduled');
 
--- Actualizar/borrar citas: solo miembros del tenant.
-drop policy if exists "appointments_update_member" on public.appointments;
-create policy "appointments_update_member"
-  on public.appointments for update to authenticated
-  using (public.is_member_of(tenant_id))
-  with check (public.is_member_of(tenant_id));
-
-drop policy if exists "appointments_delete_member" on public.appointments;
-create policy "appointments_delete_member"
-  on public.appointments for delete to authenticated
-  using (public.is_member_of(tenant_id));
+drop policy if exists "appointments_admin_all" on public.appointments;
+create policy "appointments_admin_all"
+  on public.appointments for all to authenticated
+  using (public.is_admin()) with check (public.is_admin());
 
 -- ============================================================================
---  DATOS DE EJEMPLO (opcional — descomenta para probar)
+--  CÓMO CREAR EL ADMINISTRADOR (hazlo una vez)
 -- ============================================================================
--- insert into public.tenants (name, slug) values ('Barbería Demo', 'barberia-demo');
+--  1) En Supabase: Authentication -> Users -> "Add user" (email + password).
+--  2) Copia el UID del usuario creado.
+--  3) Ejecuta (reemplazando el UID y el nombre):
+--
+--     insert into public.admins (id, full_name)
+--     values ('PEGA-AQUI-EL-UID', 'Dueño Barbería');
+--
+--  A partir de ahí, ese usuario podrá entrar en /admin/login.
+-- ============================================================================
+
+-- ============================================================================
+--  DATOS DE EJEMPLO (opcional — descomenta para probar la web pública)
+-- ============================================================================
+-- insert into public.services (name, description, duration_minutes, price) values
+--   ('Corte clásico', 'Corte de cabello a máquina y tijera', 30, 12.00),
+--   ('Corte + barba', 'Corte completo y arreglo de barba', 45, 18.00),
+--   ('Afeitado tradicional', 'Afeitado a navaja con toalla caliente', 30, 10.00);

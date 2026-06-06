@@ -1,69 +1,47 @@
-import { redirect } from "next/navigation";
-import { getTenantAccess } from "@/lib/tenant";
 import { createClient } from "@/lib/supabase/server";
 import { Card } from "@/components/ui/Card";
-import type { Appointment, Client, Service } from "@/lib/types";
+import type { Appointment, Service } from "@/lib/types";
 
-type ApptJoined = Appointment & {
-  client: Pick<Client, "name"> | null;
-  service: Pick<Service, "name"> | null;
-};
+type ApptJoined = Appointment & { service: Pick<Service, "name"> | null };
 
-// Panel interno: resumen de citas del día, próximos turnos y KPIs básicos.
-export default async function DashboardPage({
-  params,
-}: {
-  params: { tenantSlug: string };
-}) {
-  const access = await getTenantAccess(params.tenantSlug);
-  if (!access) redirect("/login");
-  const { tenant } = access;
-
+// Inicio del panel: KPIs + citas de hoy + próximos turnos.
+export default async function AdminHomePage() {
   const supabase = createClient();
 
-  // Rango "hoy" (en hora del servidor; ajusta a la zona del tenant si lo necesitas).
   const now = new Date();
   const startOfDay = new Date(now);
   startOfDay.setHours(0, 0, 0, 0);
   const endOfDay = new Date(now);
   endOfDay.setHours(23, 59, 59, 999);
 
-  // Citas de hoy (RLS ya limita por tenant, pero filtramos por claridad).
   const { data: todayData } = await supabase
     .from("appointments")
-    .select("*, client:clients(name), service:services(name)")
-    .eq("tenant_id", tenant.id)
+    .select("*, service:services(name)")
     .gte("start_time", startOfDay.toISOString())
     .lte("start_time", endOfDay.toISOString())
     .order("start_time", { ascending: true });
 
-  const today = (todayData ?? []) as ApptJoined[];
-
-  // Próximos turnos (futuros, todos los días).
   const { data: upcomingData } = await supabase
     .from("appointments")
-    .select("*, client:clients(name), service:services(name)")
-    .eq("tenant_id", tenant.id)
+    .select("*, service:services(name)")
     .gt("start_time", now.toISOString())
     .order("start_time", { ascending: true })
     .limit(5);
 
-  const upcoming = (upcomingData ?? []) as ApptJoined[];
-
-  // KPIs simples.
   const { count: clientsCount } = await supabase
     .from("clients")
-    .select("*", { count: "exact", head: true })
-    .eq("tenant_id", tenant.id);
+    .select("*", { count: "exact", head: true });
 
   const { count: servicesCount } = await supabase
     .from("services")
-    .select("*", { count: "exact", head: true })
-    .eq("tenant_id", tenant.id);
+    .select("*", { count: "exact", head: true });
+
+  const today = (todayData ?? []) as ApptJoined[];
+  const upcoming = (upcomingData ?? []) as ApptJoined[];
 
   return (
     <div>
-      <h1 className="mb-6 text-2xl font-bold">Hola, {tenant.name}</h1>
+      <h1 className="mb-6 text-2xl font-bold">Inicio</h1>
 
       <div className="mb-8 grid gap-4 sm:grid-cols-3">
         <Kpi label="Citas hoy" value={today.length} />
@@ -109,7 +87,7 @@ function ApptList({
       {items.map((a) => (
         <li key={a.id} className="flex items-center justify-between py-2 text-sm">
           <div>
-            <p className="font-medium">{a.client?.name ?? "Cliente"}</p>
+            <p className="font-medium">{a.customer_name ?? "Cliente"}</p>
             <p className="text-xs text-gray-500">{a.service?.name ?? "Servicio"}</p>
           </div>
           <div className="text-right">

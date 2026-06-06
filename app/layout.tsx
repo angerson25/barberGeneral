@@ -2,8 +2,8 @@ import type { Metadata } from "next";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "BarberSaaS — Gestión para barberías",
-  description: "SaaS multi-tenant para gestionar barberías, citas y clientes.",
+  title: "Barbería",
+  description: "Reserva tu turno online en nuestra barbería.",
 };
 
 export default function RootLayout({

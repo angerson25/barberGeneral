@@ -1,6 +1,7 @@
-# BarberSaaS — SaaS multi-tenant para barberías
+# Barbería — Web + Panel (Next.js 14 + Supabase)
 
-Esqueleto funcional con **Next.js 14 (App Router) + Supabase + Tailwind CSS**, listo para deploy en **Vercel + Supabase**.
+Web pública de **una sola barbería** con reservas online (sin login para clientes)
+y un **panel de administración** protegido para el dueño/barbero.
 
 ## Stack
 
@@ -8,15 +9,14 @@ Esqueleto funcional con **Next.js 14 (App Router) + Supabase + Tailwind CSS**, l
 - Tailwind CSS
 - Supabase (PostgreSQL + Auth + RLS) con `@supabase/ssr`
 
-## Multi-tenant
+## Cómo funciona
 
-- Cada barbería es un **tenant** (`tenants`).
-- Toda tabla de negocio lleva `tenant_id`.
-- El tenant se identifica por **slug** en la URL:
-  - Panel interno: `/{tenantSlug}/dashboard`
-  - Reserva pública: `/b/{tenantSlug}/book`
-- Aislamiento real por **RLS** + tabla `memberships` (usuario ↔ tenant ↔ rol).
-- Preparado para migrar a subdominios (`barberiaX.midominio.com`) más adelante.
+- **`/`** → Web pública: presentación, servicios y formulario de reserva. **Sin login.**
+- **`/admin/login`** → Acceso del administrador (no hay registro público).
+- **`/admin`** → Panel: inicio (KPIs), citas, clientes, servicios y configuración.
+
+El diseño (nombre, colores, textos) se edita desde **`/admin/settings`** y se guarda
+en la tabla `settings`.
 
 ## Puesta en marcha
 
@@ -30,48 +30,61 @@ Esqueleto funcional con **Next.js 14 (App Router) + Supabase + Tailwind CSS**, l
    cp .env.example .env
    ```
    Rellena `NEXT_PUBLIC_SUPABASE_URL` y `NEXT_PUBLIC_SUPABASE_ANON_KEY`
-   (Supabase → Settings → API).
+   (Supabase → Project Settings → API → *Project URL* y *anon public*).
 
-3. **Aplica el esquema y las políticas RLS**
-   Abre `supabase/schema.sql` y ejecútalo en el **SQL Editor** de Supabase.
+3. **Aplica el esquema y RLS**
+   Ejecuta `supabase/schema.sql` en el **SQL Editor** de Supabase.
 
-4. **Arranca en local**
+4. **Crea el administrador** (una sola vez):
+   - Supabase → Authentication → Users → **Add user** (email + contraseña).
+   - Copia el **UID** del usuario y ejecuta en el SQL Editor:
+     ```sql
+     insert into public.admins (id, full_name)
+     values ('PEGA-AQUI-EL-UID', 'Dueño Barbería');
+     ```
+
+5. **Arranca**
    ```bash
    npm run dev
    ```
-   Abre http://localhost:3000
-
-## Flujo de uso
-
-1. `/register` → crea cuenta (el trigger crea el `profile`).
-2. `/login` → inicia sesión.
-3. `/select-tenant` → crea tu barbería (te vuelves `owner`) o entra a una existente.
-4. `/{slug}/dashboard` → panel con KPIs, citas de hoy y próximos turnos.
-5. `/{slug}/clients`, `/{slug}/services`, `/{slug}/appointments` → gestión.
-6. `/b/{slug}/book` → página pública para que los clientes reserven.
+   - Web pública: http://localhost:3000
+   - Panel: http://localhost:3000/admin/login
 
 ## Estructura
 
 ```
 app/
-  page.tsx                       # Landing pública
-  (auth)/login | register        # Auth Supabase
-  select-tenant/                 # Elegir/crear barbería tras login
-  (dashboard)/[tenantSlug]/      # Panel interno (gate de membership)
-    dashboard | clients | services | appointments
-  b/[tenantSlug]/book/           # Reservas públicas
-  auth/callback/                 # Callback de Supabase Auth
+  page.tsx                 # Web pública (servicios + reserva)
+  actions.ts               # Server Action de reserva pública
+  admin/
+    login/                 # Acceso del admin (sin registro)
+    (panel)/               # Panel protegido (gate de admin)
+      page.tsx             # Inicio / KPIs
+      appointments/        # Agenda
+      clients/             # Clientes
+      services/            # Servicios
+      settings/            # Configuración y diseño
+  auth/callback/           # Callback de Supabase Auth
+components/
+  BookingForm.tsx          # Formulario de reserva pública
+  ui/                      # Botones, inputs, cards
 lib/
   supabase/ (server|client|middleware)
-  tenant.ts                      # Resolución de tenant + verificación de acceso
+  auth.ts                  # getAdminUser() — verificación de administrador
+  settings.ts              # getSettings() — config de la barbería
   types.ts
-components/ui/                   # Botones, inputs, cards
-supabase/schema.sql              # Tablas + RLS
+supabase/schema.sql        # Tablas + RLS (single-tenant)
 ```
 
-## Notas (siguientes iteraciones)
+## Seguridad (RLS)
 
-- Pagos: agregar tabla `payments` + integración (Stripe/Mercado Pago).
-- Recordatorios: WhatsApp/email con un cron (Vercel Cron / Supabase Edge Functions).
-- Reservas públicas: añadir captcha + rate limit y/o endpoint con service role.
-- Subdominios: resolver tenant desde `host` en `middleware.ts`.
+- `services` y `settings`: lectura pública; escritura solo administradores.
+- `clients` y `appointments`: inserción pública (reserva online); el resto solo admin.
+- `is_admin()` comprueba que el usuario esté en la tabla `admins`.
+
+## Siguientes pasos (no incluidos aún)
+
+- Pagos (Stripe / Mercado Pago).
+- Recordatorios por WhatsApp / email.
+- Anti-spam en la reserva pública (captcha + rate limit).
+- Validación de disponibilidad/horarios al reservar.
