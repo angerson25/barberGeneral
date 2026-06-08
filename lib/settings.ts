@@ -17,6 +17,7 @@ const FALLBACK: Settings = {
   primary_color: "#111827",
   accent_color: "#f59e0b",
   about: null,
+  logo_url: null,
   opening_hours: null,
   open_time: "09:00",
   close_time: "20:00",

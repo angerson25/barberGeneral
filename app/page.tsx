@@ -51,9 +51,18 @@ export default async function HomePage() {
         <header className="sticky top-0 z-30 border-b border-white/5 bg-ink-900/60 backdrop-blur-xl">
           <div className="mx-auto flex max-w-6xl items-center justify-between px-6 py-4">
             <div className="flex items-center gap-2.5">
-              <span className="grid h-9 w-9 place-items-center rounded-xl bg-gradient-to-br from-neon-cyan to-neon-violet text-sm font-black text-ink-900 shadow-glow">
-                {settings.name.charAt(0).toUpperCase()}
-              </span>
+              {settings.logo_url ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img
+                  src={settings.logo_url}
+                  alt={settings.name}
+                  className="h-9 w-9 rounded-xl object-cover shadow-glow"
+                />
+              ) : (
+                <span className="grid h-9 w-9 place-items-center rounded-xl bg-gradient-to-br from-neon-cyan to-neon-violet text-sm font-black text-ink-900 shadow-glow">
+                  {settings.name.charAt(0).toUpperCase()}
+                </span>
+              )}
               <span className="font-display text-base font-semibold tracking-tight">
                 {settings.name}
               </span>
@@ -300,9 +309,18 @@ export default async function HomePage() {
           <div className="mx-auto grid max-w-6xl gap-8 px-6 py-12 sm:grid-cols-3">
             <div>
               <div className="flex items-center gap-2.5">
-                <span className="grid h-9 w-9 place-items-center rounded-xl bg-gradient-to-br from-neon-cyan to-neon-violet text-sm font-black text-ink-900">
-                  {settings.name.charAt(0).toUpperCase()}
-                </span>
+                {settings.logo_url ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img
+                    src={settings.logo_url}
+                    alt={settings.name}
+                    className="h-9 w-9 rounded-xl object-cover"
+                  />
+                ) : (
+                  <span className="grid h-9 w-9 place-items-center rounded-xl bg-gradient-to-br from-neon-cyan to-neon-violet text-sm font-black text-ink-900">
+                    {settings.name.charAt(0).toUpperCase()}
+                  </span>
+                )}
                 <span className="font-display text-base font-semibold text-white">
                   {settings.name}
                 </span>

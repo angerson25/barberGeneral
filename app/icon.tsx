@@ -22,10 +22,22 @@ export default async function Icon() {
           fontWeight: 900,
           color: "#05060a",
           borderRadius: 8,
+          overflow: "hidden",
           background: "linear-gradient(135deg, #22d3ee 0%, #a855f7 100%)",
         }}
       >
-        {initial}
+        {settings.logo_url ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img
+            src={settings.logo_url}
+            width={32}
+            height={32}
+            style={{ width: "100%", height: "100%", objectFit: "cover" }}
+            alt=""
+          />
+        ) : (
+          initial
+        )}
       </div>
     ),
     size

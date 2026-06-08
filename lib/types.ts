@@ -15,6 +15,7 @@ export interface Settings {
   phone: string | null;
   address: string | null;
   instagram: string | null;
+  logo_url: string | null;
   primary_color: string | null;
   accent_color: string | null;
   about: string | null;

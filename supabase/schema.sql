@@ -26,6 +26,7 @@
     address       text,
     instagram     text,
     -- Personalización de diseño:
+    logo_url      text,                    -- logo/favicon de la barbería (Storage)
     primary_color text default '#111827',
     accent_color  text default '#f59e0b',
     about         text,
@@ -294,6 +295,7 @@ create policy "barbers_admin_delete"
     alter table public.settings add column if not exists about text;
     alter table public.settings add column if not exists opening_hours text;
     alter table public.settings add column if not exists instagram text;
+    alter table public.settings add column if not exists logo_url text;
     alter table public.settings add column if not exists primary_color text default '#111827';
     alter table public.settings add column if not exists accent_color text default '#f59e0b';
     alter table public.settings add column if not exists open_time text default '09:00';
@@ -311,12 +313,40 @@ create policy "barbers_admin_delete"
     --  NOT NULL que ahora rompen los inserts (single-tenant). Las eliminamos.
     --  Es seguro: usa "drop column if exists".
     -- ============================================================================
-    alter table public.services     drop column if exists tenant_id;
-    alter table public.barbers      drop column if exists tenant_id;
-    alter table public.appointments drop column if exists tenant_id;
-    alter table public.clients      drop column if exists tenant_id;
-    alter table public.settings     drop column if exists tenant_id;
-
     --  Refresca de nuevo la caché del API tras los cambios:
     notify pgrst, 'reload schema';
+    -- ============================================================================
+
+    -- ============================================================================
+    --  STORAGE: bucket público para la marca (logo / favicon)
+    -- ============================================================================
+    --  Crea un bucket público donde se sube el logo de la barbería desde el panel.
+    --  Es seguro re-ejecutarlo (usa on conflict / drop policy if exists).
+    -- ============================================================================
+    insert into storage.buckets (id, name, public)
+    values ('branding', 'branding', true)
+    on conflict (id) do nothing;
+
+    --  Lectura pública de los archivos de marca:
+    drop policy if exists "branding_public_read" on storage.objects;
+    create policy "branding_public_read"
+      on storage.objects for select
+      using (bucket_id = 'branding');
+
+    --  Solo el administrador puede subir / reemplazar / borrar:
+    drop policy if exists "branding_admin_insert" on storage.objects;
+    create policy "branding_admin_insert"
+      on storage.objects for insert to authenticated
+      with check (bucket_id = 'branding' and public.is_admin());
+
+    drop policy if exists "branding_admin_update" on storage.objects;
+    create policy "branding_admin_update"
+      on storage.objects for update to authenticated
+      using (bucket_id = 'branding' and public.is_admin())
+      with check (bucket_id = 'branding' and public.is_admin());
+
+    drop policy if exists "branding_admin_delete" on storage.objects;
+    create policy "branding_admin_delete"
+      on storage.objects for delete to authenticated
+      using (bucket_id = 'branding' and public.is_admin());
     -- ============================================================================
