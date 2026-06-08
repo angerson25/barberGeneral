@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { Inter, Space_Grotesk } from "next/font/google";
+import { getSettings } from "@/lib/settings";
 import "./globals.css";
 
 const inter = Inter({
@@ -14,10 +15,35 @@ const spaceGrotesk = Space_Grotesk({
   display: "swap",
 });
 
-export const metadata: Metadata = {
-  title: "Barbería",
-  description: "Reserva tu turno online en nuestra barbería.",
-};
+export async function generateMetadata(): Promise<Metadata> {
+  const settings = await getSettings();
+  const title = settings.name;
+  const description =
+    settings.about ??
+    settings.tagline ??
+    "Reserva tu turno online en nuestra barbería.";
+
+  return {
+    title: {
+      default: title,
+      template: `%s · ${title}`,
+    },
+    description,
+    applicationName: title,
+    openGraph: {
+      type: "website",
+      locale: "es_ES",
+      siteName: title,
+      title,
+      description,
+    },
+    twitter: {
+      card: "summary_large_image",
+      title,
+      description,
+    },
+  };
+}
 
 export default function RootLayout({
   children,
