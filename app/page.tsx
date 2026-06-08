@@ -48,39 +48,41 @@ export default async function HomePage() {
 
       <div className="relative">
         {/* Navbar */}
-        <header className="mx-auto flex max-w-6xl items-center justify-between px-6 py-6">
-          <div className="flex items-center gap-2">
-            <span className="grid h-9 w-9 place-items-center rounded-lg bg-gradient-to-br from-neon-cyan to-neon-violet text-sm font-black text-ink-900">
-              {settings.name.charAt(0).toUpperCase()}
-            </span>
-            <span className="text-base font-semibold tracking-tight">
-              {settings.name}
-            </span>
-          </div>
-          <nav className="flex items-center gap-6 text-sm text-slate-300">
-            <a href="#servicios" className="hidden hover:text-white sm:block">
-              Servicios
-            </a>
-            <a href="#equipo" className="hidden hover:text-white sm:block">
-              Equipo
-            </a>
-            {settings.instagram && (
-              <a
-                href={settings.instagram}
-                target="_blank"
-                rel="noreferrer"
-                className="hidden hover:text-white sm:block"
-              >
-                Instagram
+        <header className="sticky top-0 z-30 border-b border-white/5 bg-ink-900/60 backdrop-blur-xl">
+          <div className="mx-auto flex max-w-6xl items-center justify-between px-6 py-4">
+            <div className="flex items-center gap-2.5">
+              <span className="grid h-9 w-9 place-items-center rounded-xl bg-gradient-to-br from-neon-cyan to-neon-violet text-sm font-black text-ink-900 shadow-glow">
+                {settings.name.charAt(0).toUpperCase()}
+              </span>
+              <span className="font-display text-base font-semibold tracking-tight">
+                {settings.name}
+              </span>
+            </div>
+            <nav className="flex items-center gap-6 text-sm text-slate-300">
+              <a href="#servicios" className="hidden transition hover:text-white sm:block">
+                Servicios
               </a>
-            )}
-            <a
-              href="#reservar"
-              className="rounded-full border border-white/15 bg-white/5 px-4 py-2 font-medium text-white backdrop-blur transition hover:bg-white/10"
-            >
-              Reservar
-            </a>
-          </nav>
+              <a href="#equipo" className="hidden transition hover:text-white sm:block">
+                Equipo
+              </a>
+              {settings.instagram && (
+                <a
+                  href={settings.instagram}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="hidden transition hover:text-white sm:block"
+                >
+                  Instagram
+                </a>
+              )}
+              <a
+                href="#reservar"
+                className="rounded-full border border-white/15 bg-white/5 px-4 py-2 font-medium text-white backdrop-blur transition hover:bg-white/10"
+              >
+                Reservar
+              </a>
+            </nav>
+          </div>
         </header>
 
         {/* Hero */}
@@ -90,7 +92,7 @@ export default async function HomePage() {
             Reserva tu turno en segundos
           </span>
 
-          <h1 className="mx-auto mt-6 max-w-3xl text-5xl font-black leading-[1.05] tracking-tight sm:text-7xl">
+          <h1 className="mx-auto mt-6 max-w-3xl font-display text-5xl font-black leading-[1.05] tracking-tight sm:text-7xl">
             <span className="text-gradient animate-gradient-pan">
               {settings.name}
             </span>
@@ -117,8 +119,28 @@ export default async function HomePage() {
             </a>
           </div>
 
+          {/* Barra de confianza */}
+          <div className="mx-auto mt-12 grid max-w-2xl grid-cols-3 divide-x divide-white/10 rounded-2xl border border-white/10 bg-white/[0.03] py-5 backdrop-blur">
+            <div className="px-4">
+              <p className="font-display text-2xl font-black text-white">
+                {services.length || "—"}
+              </p>
+              <p className="mt-1 text-xs text-slate-400">Servicios</p>
+            </div>
+            <div className="px-4">
+              <p className="font-display text-2xl font-black text-white">
+                {barbers.length || "—"}
+              </p>
+              <p className="mt-1 text-xs text-slate-400">Barberos</p>
+            </div>
+            <div className="px-4">
+              <p className="font-display text-2xl font-black text-white">24/7</p>
+              <p className="mt-1 text-xs text-slate-400">Reserva online</p>
+            </div>
+          </div>
+
           {(settings.phone || settings.address || settings.opening_hours) && (
-            <div className="mx-auto mt-10 flex max-w-2xl flex-wrap items-center justify-center gap-x-6 gap-y-2 text-sm text-slate-400">
+            <div className="mx-auto mt-8 flex max-w-2xl flex-wrap items-center justify-center gap-x-6 gap-y-2 text-sm text-slate-400">
               {settings.phone && <span>📞 {settings.phone}</span>}
               {settings.address && <span>📍 {settings.address}</span>}
               {settings.opening_hours && <span>🕒 {settings.opening_hours}</span>}
@@ -138,7 +160,13 @@ export default async function HomePage() {
         {/* Servicios */}
         <section id="servicios" className="mx-auto max-w-6xl px-6 py-16">
           <div className="mb-10 text-center">
-            <h2 className="text-3xl font-bold tracking-tight sm:text-4xl">
+            <span
+              className="text-xs font-semibold uppercase tracking-[0.2em]"
+              style={{ color: accent }}
+            >
+              Carta
+            </span>
+            <h2 className="mt-2 font-display text-3xl font-bold tracking-tight sm:text-4xl">
               Nuestros servicios
             </h2>
             <p className="mt-2 text-slate-400">
@@ -183,7 +211,13 @@ export default async function HomePage() {
         {barbers.length > 0 && (
           <section id="equipo" className="mx-auto max-w-6xl px-6 py-16">
             <div className="mb-10 text-center">
-              <h2 className="text-3xl font-bold tracking-tight sm:text-4xl">
+              <span
+                className="text-xs font-semibold uppercase tracking-[0.2em]"
+                style={{ color: accent }}
+              >
+                Profesionales
+              </span>
+              <h2 className="mt-2 font-display text-3xl font-bold tracking-tight sm:text-4xl">
                 Nuestro equipo
               </h2>
               <p className="mt-2 text-slate-400">
@@ -235,7 +269,13 @@ export default async function HomePage() {
         <section id="reservar" className="mx-auto max-w-6xl px-6 py-16">
           <div className="mx-auto max-w-2xl">
             <div className="mb-8 text-center">
-              <h2 className="text-3xl font-bold tracking-tight sm:text-4xl">
+              <span
+                className="text-xs font-semibold uppercase tracking-[0.2em]"
+                style={{ color: accent }}
+              >
+                Reserva online
+              </span>
+              <h2 className="mt-2 font-display text-3xl font-bold tracking-tight sm:text-4xl">
                 Reserva tu turno
               </h2>
               <p className="mt-2 text-slate-400">
@@ -256,15 +296,74 @@ export default async function HomePage() {
         </section>
 
         {/* Pie */}
-        <footer className="border-t border-white/5 px-6 py-10 text-center text-sm text-slate-500">
-          <p className="font-medium text-slate-300">{settings.name}</p>
-          {settings.opening_hours && (
-            <p className="mt-1">🕒 {settings.opening_hours}</p>
-          )}
-          <p className="mt-4 text-xs text-slate-600">
+        <footer className="border-t border-white/5 bg-ink-900/40">
+          <div className="mx-auto grid max-w-6xl gap-8 px-6 py-12 sm:grid-cols-3">
+            <div>
+              <div className="flex items-center gap-2.5">
+                <span className="grid h-9 w-9 place-items-center rounded-xl bg-gradient-to-br from-neon-cyan to-neon-violet text-sm font-black text-ink-900">
+                  {settings.name.charAt(0).toUpperCase()}
+                </span>
+                <span className="font-display text-base font-semibold text-white">
+                  {settings.name}
+                </span>
+              </div>
+              {settings.tagline && (
+                <p className="mt-3 max-w-xs text-sm text-slate-400">
+                  {settings.tagline}
+                </p>
+              )}
+            </div>
+
+            <div className="text-sm text-slate-400">
+              <p className="mb-3 font-semibold uppercase tracking-wide text-slate-500">
+                Contacto
+              </p>
+              <ul className="space-y-1.5">
+                {settings.phone && <li>📞 {settings.phone}</li>}
+                {settings.address && <li>📍 {settings.address}</li>}
+                {settings.opening_hours && <li>🕒 {settings.opening_hours}</li>}
+              </ul>
+            </div>
+
+            <div className="text-sm text-slate-400">
+              <p className="mb-3 font-semibold uppercase tracking-wide text-slate-500">
+                Enlaces
+              </p>
+              <ul className="space-y-1.5">
+                <li>
+                  <a href="#servicios" className="transition hover:text-white">
+                    Servicios
+                  </a>
+                </li>
+                <li>
+                  <a href="#equipo" className="transition hover:text-white">
+                    Equipo
+                  </a>
+                </li>
+                <li>
+                  <a href="#reservar" className="transition hover:text-white">
+                    Reservar turno
+                  </a>
+                </li>
+                {settings.instagram && (
+                  <li>
+                    <a
+                      href={settings.instagram}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="transition hover:text-white"
+                    >
+                      Instagram
+                    </a>
+                  </li>
+                )}
+              </ul>
+            </div>
+          </div>
+          <div className="border-t border-white/5 px-6 py-6 text-center text-xs text-slate-600">
             © {new Date().getFullYear()} {settings.name}. Todos los derechos
             reservados.
-          </p>
+          </div>
         </footer>
       </div>
     </main>
